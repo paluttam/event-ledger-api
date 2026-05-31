@@ -12,47 +12,59 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.eventledger.dto.BalanceResponse;
+import com.example.eventledger.dto.EventCreationResult;
 import com.example.eventledger.dto.EventRequest;
 import com.example.eventledger.entity.Event;
 import com.example.eventledger.service.EventService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "Event Ledger API", description = "Financial transaction event ledger operations")
 public class EventController {
-	
+
     private final EventService service;
 
     @PostMapping("/events")
+    @Operation(
+            summary = "Create Event",
+            description = "Creates a new event. If the event already exists, returns the original event without affecting balance."
+    )
     public ResponseEntity<Event> createEvent(
             @Valid @RequestBody EventRequest request) {
 
-        boolean exists = false;
+        EventCreationResult result = service.createEvent(request);
 
-        try {
-            service.getEvent(request.getEventId());
-            exists = true;
-        } catch (Exception ignored) {
+        if (result.isDuplicate()) {
+            return ResponseEntity.ok(result.getEvent());
         }
 
-        Event event = service.createEvent(request);
-
-        if (exists) {
-            return ResponseEntity.ok(event);
-        }
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(event);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(result.getEvent());
     }
 
     @GetMapping("/events/{id}")
-    public ResponseEntity<Event> getEvent(@PathVariable String id) {
+    @Operation(
+            summary = "Get Event By Id",
+            description = "Retrieves a single event using its eventId"
+    )
+    public ResponseEntity<Event> getEvent(
+            @PathVariable String id) {
 
-        return ResponseEntity.ok(service.getEvent(id));
+        return ResponseEntity.ok(
+                service.getEvent(id));
     }
 
     @GetMapping("/events")
+    @Operation(
+            summary = "Get Events By Account",
+            description = "Returns all events for an account ordered by event timestamp"
+    )
     public ResponseEntity<List<Event>> getEventsByAccount(
             @RequestParam String account) {
 
@@ -61,6 +73,10 @@ public class EventController {
     }
 
     @GetMapping("/accounts/{accountId}/balance")
+    @Operation(
+            summary = "Get Account Balance",
+            description = "Returns net balance = Credits - Debits"
+    )
     public ResponseEntity<BalanceResponse> getBalance(
             @PathVariable String accountId) {
 

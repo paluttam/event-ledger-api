@@ -16,72 +16,90 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.example.eventledger.dto.EventRequest;
 import com.example.eventledger.entity.EventType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class EventControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+	@Autowired
+	private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper mapper;
+	@Autowired
+	private ObjectMapper mapper;
 
-    @Test
-    void testCreateEvent() throws Exception {
+	@Test
+	void testCreateEvent() throws Exception {
 
-        EventRequest request = new EventRequest();
+		EventRequest request = new EventRequest();
 
-        request.setEventId("evt-001");
-        request.setAccountId("acct-123");
-        request.setType(EventType.CREDIT);
-        request.setAmount(BigDecimal.valueOf(100));
-        request.setCurrency("USD");
-        request.setEventTimestamp(Instant.now());
+		request.setEventId("evt-001");
+		request.setAccountId("acct-123");
+		request.setType(EventType.CREDIT);
+		request.setAmount(BigDecimal.valueOf(100));
+		request.setCurrency("USD");
+		request.setEventTimestamp(Instant.now());
 
-        mockMvc.perform(post("/events")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isCreated());
-    }
+		mockMvc.perform(
+				post("/events").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(request)))
+				.andExpect(status().isCreated());
+	}
 
-    @Test
-    void testDuplicateEvent() throws Exception {
+	@Test
+	void testGetMissingEvent() throws Exception {
 
-        EventRequest request = new EventRequest();
+		mockMvc.perform(get("/events/not-found")).andExpect(status().isNotFound());
+	}
 
-        request.setEventId("evt-002");
-        request.setAccountId("acct-123");
-        request.setType(EventType.CREDIT);
-        request.setAmount(BigDecimal.valueOf(200));
-        request.setCurrency("USD");
-        request.setEventTimestamp(Instant.now());
+	@Test
+	void testInvalidEventType() throws Exception {
 
-        String json = mapper.writeValueAsString(request);
+		String json = """
+				{
+				  "eventId":"1",
+				  "accountId":"acct",
+				  "type":"INVALID",
+				  "amount":100,
+				  "currency":"USD",
+				  "eventTimestamp":"2026-05-15T14:02:11Z"
+				}
+				""";
 
-        mockMvc.perform(post("/events")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json));
+		mockMvc.perform(post("/events").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isBadRequest());
+	}
 
-        mockMvc.perform(post("/events")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isOk());
-    }
+	@Test
+	void testDuplicateEvent() throws Exception {
 
-    @Test
-    void testValidation() throws Exception {
+		EventRequest request = new EventRequest();
 
-        String invalidJson = """
-                {
-                    "eventId":"",
-                    "amount":-10
-                }
-                """;
+		request.setEventId("evt-002");
+		request.setAccountId("acct-123");
+		request.setType(EventType.CREDIT);
+		request.setAmount(BigDecimal.valueOf(200));
+		request.setCurrency("USD");
+		request.setEventTimestamp(Instant.now());
 
-        mockMvc.perform(post("/events")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(invalidJson))
-                .andExpect(status().isBadRequest());
-    }
+		String json = mapper.writeValueAsString(request);
+
+		mockMvc.perform(post("/events").contentType(MediaType.APPLICATION_JSON).content(json));
+
+		mockMvc.perform(post("/events").contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void testValidation() throws Exception {
+
+		String invalidJson = """
+				{
+				    "eventId":"",
+				    "amount":-10
+				}
+				""";
+
+		mockMvc.perform(post("/events").contentType(MediaType.APPLICATION_JSON).content(invalidJson))
+				.andExpect(status().isBadRequest());
+	}
 }
