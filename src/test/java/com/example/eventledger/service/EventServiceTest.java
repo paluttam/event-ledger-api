@@ -168,4 +168,17 @@ class EventServiceTest {
                 BigDecimal.valueOf(70),
                 response.getBalance());
     }
+    @Test
+    void getBalance_emptyAccount() {
+
+        when(repository.findByAccountId("acct-1"))
+                .thenReturn(List.of());
+
+        BalanceResponse response =
+                service.getBalance("acct-1");
+
+        assertEquals(
+                BigDecimal.ZERO,
+                response.getBalance());
+    }
 }
